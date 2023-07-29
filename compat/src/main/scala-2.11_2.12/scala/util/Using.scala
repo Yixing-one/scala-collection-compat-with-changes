@@ -114,6 +114,9 @@ object Using {
   def apply[R: Releasable, A](resource: => R)(f: R => A): Try[A] = Try {
     Using.resource(resource)(f)
   }
+  def apply[R: Releasable|Null, A](resource: => R|Null)(f: R => A): Try[A] = Try {
+    Using.resource(resource)(f)
+  }
 
   /** A resource manager.
    *
@@ -282,6 +285,27 @@ object Using {
     }
   }
 
+  def resource[R|Null, A](resource: R|Null)(body: R|Null=> A)(implicit releasable: Releasable[R|Null]): A = {
+    if (resource == null) throw new NullPointerException("null resource")
+
+    var toThrow: Throwable = null
+    try {
+      body(resource)
+    } catch {
+      case t: Throwable =>
+        toThrow = t
+        null.asInstanceOf[A] // compiler doesn't know `finally` will throw
+    } finally {
+      if (toThrow eq null) releasable.release(resource)
+      else {
+        try releasable.release(resource)
+        catch {
+          case other: Throwable => toThrow = preferentiallySuppress(toThrow, other)
+        } finally throw toThrow
+      }
+    }
+  }
+
   /** Performs an operation using two resources, and then releases the resources
    * in reverse order, even if the operation throws an exception. This method
    * behaves similarly to Java's try-with-resources.
@@ -395,8 +419,8 @@ object Using {
   object Releasable {
 
     /** An implicit `Releasable` for [[java.lang.AutoCloseable `AutoCloseable`s]]. */
-    implicit object AutoCloseableIsReleasable extends Releasable[AutoCloseable] {
-      def release(resource: AutoCloseable): Unit = resource.close()
+    implicit object AutoCloseableIsReleasable extends Releasable[AutoCloseable|Null] {
+      def release(resource: AutoCloseable|Null): Unit = resource.close()
     }
   }
 

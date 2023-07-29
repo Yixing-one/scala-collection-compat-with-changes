@@ -719,13 +719,13 @@ class UsingTest {
 
   @Test
   def resourceDisallowsNull(): Unit = {
-    val npe = catchThrowable(Using.resource(null: AutoCloseable)(_ => "test"))
+    val npe = catchThrowable(Using.resource(null: AutoCloseable|Null)(_ => "test"))
     assertThrowableClass[NullPointerException](npe)
   }
 
   @Test
   def usingDisallowsNull(): Unit = {
-    val npe = Using(null: AutoCloseable)(_ => "test").failed.get
+    val npe = Using(null: AutoCloseable|Null)(_ => "test").failed.get
     assertThrowableClass[NullPointerException](npe)
   }
 
@@ -733,7 +733,7 @@ class UsingTest {
   def managerDisallowsNull(): Unit = {
     val npe = Using
       .Manager { m =>
-        m(null: AutoCloseable)
+        m(null: AutoCloseable|Null)
         "test"
       }
       .failed
